@@ -5,7 +5,6 @@ namespace App\Controller;
 use App\Controller\AppController;
 use Cake\Event\Event;
 
-
 /**
  * Todos Controller
  *
@@ -33,45 +32,60 @@ class TodosController extends AppController
     public function index()
     {
         $key = $this->request->getQuery('key');
-        if ($key) {
+        $day = $this->request->getQuery('day') ? $this->request->getQuery('day') : date('Y-m-d');
+        if ($key && $day != 'all') {
             $query = $this->Todos->find('all')
-                ->where([
+                ->where(['AND' => [
+                    'scheduled_date' => $day,
                     'OR' => [
                         'title like' => '%' . $key . '%',
                         'description like' => '%' . $key . '%',
                         'status like' => '%' . $key . '%',
                     ]
-                ])->order('scheduled_time ASC');
+                ]])->order('scheduled_time ASC');
             // debug($query);
             // exit;
         } else {
-            $query = $this->Todos->find()->order('scheduled_time ASC');
+            $query = $this->Todos->find()->where(['scheduled_date' => $day])->order('scheduled_time ASC');
         }
-        // $query = $this->Todos->find()->order('scheduled_time ASC');
+        if ($day == 'all') {
+            $query = $this->Todos->find('all')->order('scheduled_time ASC');
+            // debug($query);
+            // exit;
+        }
 
         $todos = $this->paginate($query);
         $this->set('todos', $todos);
 
-        $query = $this->Todos->find()
-            ->where([
-                'status like' => '%Completed%',
-            ]);
-        $completed = $this->paginate($query);
-        $this->set('completed', sizeof($completed));
 
-        $query = $this->Todos->find()
+        /**
+         * Setting the dashboard widget
+         */
+        $completed = $this->Todos->find()->select(['count' => $query->func()->count('*')])
             ->where([
-                'status like' => '%Pending%',
-            ]);
-        $pending = $this->paginate($query);
-        $this->set('pending', sizeof($pending));
+                'status =' => 'Completed',
+            ])->toArray();
+        // debug(($completed[0]->count));
+        // exit;
+        $pending = $this->Todos->find()->select(['count' => $query->func()->count('*')])
+            ->where([
+                'status =' => 'Pending',
+            ])->toArray();
 
-        $query = $this->Todos->find()
+        $failed = $this->Todos->find()->select(['count' => $query->func()->count('*')])
             ->where([
-                'status like' => '%Failed%',
-            ]);
-        $failed = $this->paginate($query);
-        $this->set('failed', sizeof($failed));
+                'status =' => 'Failed',
+            ])->toArray();
+
+        $dashboard = array(
+            'completed' =>  $completed[0]->count,
+            'pending' =>   $pending[0]->count,
+            'failed' => $failed[0]->count,
+        );
+        // debug($dashboard);
+        // exit;
+        //Send resultSet
+        $this->set('dashboard', $dashboard);
     }
 
     /**
@@ -153,33 +167,90 @@ class TodosController extends AppController
 
         return $this->redirect(['action' => 'index']);
     }
+
+
     public function exportpdf()
     {
+
+        // header("Content-Type:application/pdf");
+        // header("Content-Disposition:attachment;filename='downloaded.pdf'");
+
+        $this->viewBuilder()->setLayout('exportpdf');
+
         $key = $this->request->getQuery('key');
-        if ($key) {
+        $day = $this->request->getQuery('day');
+        if (!$key && !$day) {
+            $day =  date('Y-m-d');
+            $query = $this->Todos->find()->where(['scheduled_date' => $day])->order('scheduled_time ASC');
+        } elseif ($key && !$day) {
+            $day =  date('Y-m-d');
             $query = $this->Todos->find('all')
-                ->where([
+                ->where(['AND' => [
+                    'scheduled_date' => $day,
                     'OR' => [
                         'title like' => '%' . $key . '%',
                         'description like' => '%' . $key . '%',
                         'status like' => '%' . $key . '%',
                     ]
-                ])->order('scheduled_time ASC');
+                ]])->order('scheduled_time ASC');
+        } elseif (!$key && $day) {
+            $query = $this->Todos->find()->where(['scheduled_date' => $day])->order('scheduled_time ASC');
+
+            $query = $this->Todos->find('all')->order('scheduled_time ASC');
             // debug($query);
             // exit;
+        } elseif ($key && $day) {
+            $query = $this->Todos->find('all')
+                ->where(['AND' => [
+                    'scheduled_date' => $day,
+                    'OR' => [
+                        'title like' => '%' . $key . '%',
+                        'description like' => '%' . $key . '%',
+                        'status like' => '%' . $key . '%',
+                    ]
+                ]])->order('scheduled_time ASC');
         } else {
-            $query = $this->Todos->find()->order('scheduled_time ASC');
+            $query = $this->Todos->find('all')->order('scheduled_time ASC');
         }
-        $todos = $this->paginate($query);
 
-        //$data = $this->request->getParam();
-        // debug($this->request->getQuery('filter'));
-        // exit;
-        debug($todos);
-        exit;
-        // Set the view vars that have to be serialized.
-        $this->set('todos', $this->paginate());
-        // Specify which view vars JsonView should serialize.
-        $this->viewBuilder()->setOptions($todos, 'todos');
+        require_once(ROOT . DS . 'vendor' . DS . 'mpdf' . DS . 'mpdf' . DS . 'src' . DS . 'Mpdf.php');
+
+        $mpdf = new \Mpdf\Mpdf();
+        $content = 'Todos PDF Export  <br> <b>Date</b>: ' . $day . ', <b>Search Key</b>: ' . $key . '<br/>';
+        $content .= '<br/><table width=100%>
+                            <tr>
+                            <td>Date and Time</td>
+                            <td>Title</td>
+                            <td>Description</td>
+                            <td>Status</td>
+                            </tr>
+                            ';
+        foreach ($query as $todo) :
+            $time = explode(',', $todo->scheduled_time);
+
+            $content .= '
+                <tr>
+                <td>' . h($todo->scheduled_time) . '</td>
+                <td>' . h($todo->title) . '</td>
+                <td>' . h($todo->Description) . '</td>
+                <td>' . h($todo->status) . '</td>
+            </tr>';
+        endforeach;
+        $content .= '</table>';
+
+
+        $pdfName = 'TodoExport.pdf'; //name of the pdf file
+
+        $mpdf->SetAuthor('Kof-Ano Akpadji'); // author added to pdf file
+
+        $mpdf->SetTitle($pdfName); // title that is shown when pdf is opened in browser
+
+        $mpdf->WriteHTML($content); //function used to convert HTML to pdf
+
+        $mpdf->showImageErrors = true; // show if any image errors are present
+
+        $mpdf->debug = true; // Debug warning or errors if set true(false by default)
+        $mpdf->Output($pdfName, 'I'); //output the pdf file
+
     }
 }

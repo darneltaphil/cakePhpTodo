@@ -22,6 +22,7 @@
                 //$status = $this->set('groups', $this->Todostatus->find('list')->all());
                 echo $this->Form->control('title', ['class' => ' border-10']);
                 echo $this->Form->control('description');
+                echo $this->Form->control('scheduled_date', ['type' => 'date']);
                 echo $this->Form->control('scheduled_time', ['type' => 'time']);
                 echo $this->Form->control('status', ['options' => ['Completed' => 'Completed', 'Failed' => 'Failed', 'Pending' => 'Pending']]);
                 // echo $this->Form->control('created_at');
