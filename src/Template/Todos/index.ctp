@@ -30,28 +30,29 @@
 
 
     <div class="row mt-5">
-        <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6">
-            <h3 style="display: inline;"><?= __('Todos');    ?></h3>
+        <div class="col-xl-4 col-lg-4 col-md-4 col-sm-6">
+
             <a class="btn btn-primary text-white mx-2 my-2" href=" <?= $this->Url->build(['controller' => 'todos', 'action' => 'add']); ?>" title='Add New Todo'>
                 <span class="fa fa-plus fa-1x "></span> Add Todo
             </a>
             <div class="btn-group" role="group" aria-label="Basic example">
-                <a class="btn btn-dark text-white  my-2" href=" <?= $this->Url->build(['controller' => 'todos', 'action' => 'exportpdf', 'key' => $this->request->getQuery('key')]); ?>" title='Export PDF'>
+                <span class="btn btn-dark text-white  my-2 exportPdf" href=" <?= $this->Url->build(['controller' => 'todos', 'action' => 'exportpdf', 'key' => $this->request->getQuery('key')]); ?>" title='Export PDF'>
                     <span class="fa fa-file-pdf-o fa-1x "></span> PDF
-                </a>
-                <a class="btn btn-info text-white my-2" href=" <?= $this->Url->build(['controller' => 'todos', 'action' => 'exportxml', 'key' =>  $this->request->getQuery('key')]); ?>" title='Export XML'>
+                </span>
+                <a class="btn btn-info text-white my-2 exportXml" href=" <?= $this->Url->build(['controller' => 'todos', 'action' => 'exportxml', 'key' =>  $this->request->getQuery('key')]); ?>" title='Export XML'>
                     <span class="fa fa-file-code-o fa-1x "></span> XML
                 </a>
             </div>
 
         </div>
-        <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6">
+        <div class="col-xl-8 col-lg-8 col-md-8 col-sm-6">
             <form style="display:inline;">
                 <a href=<?= $this->Url->build(['controller' => 'todos', 'action' => 'index', 'key' => null, 'day' => 'all']); ?> class="logo">
                     <span class="btn btn-primary my-2">All Todos</span>
                 </a>
-                <input name='day' type="date" value="<?= $this->request->getQuery('day') ?>">
-                <input name='key' type="text" value="<?= $this->request->getQuery('key') ?>" placeholder="Search">
+                <input id="day" name='day' type="date" value="<?= $this->request->getQuery('day') ?>">
+                <input id="type" type="checkbox" name="type" value="">Search in All
+                <input id="key" name='key' type="text" value="<?= $this->request->getQuery('key') ?>" placeholder="Search">
                 <button class="btn btn-primary">go</button>
             </form>
         </div>
@@ -83,8 +84,7 @@
                     } else {
                         foreach ($todos as $todo) : ?>
                             <?php $time = explode(',', $todo->scheduled_time);
-                            $date = date_create($todo->scheduled_time);
-                            // echo $todo->scheduled_time;
+                            $date = date_create($todo->scheduled_date . ' ' . $time[1]);
                             ?>
                             <tr>
                                 <td>

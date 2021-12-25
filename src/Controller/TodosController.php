@@ -4,6 +4,9 @@ namespace App\Controller;
 
 use App\Controller\AppController;
 use Cake\Event\Event;
+use Spatie\ArrayToXml\ArrayToXml;
+use Mpdf\Mpdf;
+
 
 /**
  * Todos Controller
@@ -32,17 +35,30 @@ class TodosController extends AppController
     public function index()
     {
         $key = $this->request->getQuery('key');
+        $type = $this->request->getQuery('type');
         $day = $this->request->getQuery('day') ? $this->request->getQuery('day') : date('Y-m-d');
-        if ($key && $day != 'all') {
-            $query = $this->Todos->find('all')
-                ->where(['AND' => [
-                    'scheduled_date' => $day,
-                    'OR' => [
-                        'title like' => '%' . $key . '%',
-                        'description like' => '%' . $key . '%',
-                        'status like' => '%' . $key . '%',
-                    ]
-                ]])->order('scheduled_time ASC');
+        if ($key && $day) {
+            if ($type == 'all') {
+                $query = $this->Todos->find('all')
+                    ->where([
+                        'OR' => [
+                            'title like' => '%' . $key . '%',
+                            'description like' => '%' . $key . '%',
+                            'status like' => '%' . $key . '%',
+                        ]
+                    ])->order('scheduled_time ASC');
+            } else {
+                $query = $this->Todos->find('all')
+                    ->where(['AND' => [
+                        'scheduled_date' => $day,
+                        'OR' => [
+                            'title like' => '%' . $key . '%',
+                            'description like' => '%' . $key . '%',
+                            'status like' => '%' . $key . '%',
+                        ]
+                    ]])->order('scheduled_time ASC');
+            }
+
             // debug($query);
             // exit;
         } else {
@@ -171,49 +187,43 @@ class TodosController extends AppController
 
     public function exportpdf()
     {
-
-        // header("Content-Type:application/pdf");
-        // header("Content-Disposition:attachment;filename='downloaded.pdf'");
-
-        $this->viewBuilder()->setLayout('exportpdf');
-
         $key = $this->request->getQuery('key');
-        $day = $this->request->getQuery('day');
-        if (!$key && !$day) {
-            $day =  date('Y-m-d');
-            $query = $this->Todos->find()->where(['scheduled_date' => $day])->order('scheduled_time ASC');
-        } elseif ($key && !$day) {
-            $day =  date('Y-m-d');
-            $query = $this->Todos->find('all')
-                ->where(['AND' => [
-                    'scheduled_date' => $day,
-                    'OR' => [
-                        'title like' => '%' . $key . '%',
-                        'description like' => '%' . $key . '%',
-                        'status like' => '%' . $key . '%',
-                    ]
-                ]])->order('scheduled_time ASC');
-        } elseif (!$key && $day) {
-            $query = $this->Todos->find()->where(['scheduled_date' => $day])->order('scheduled_time ASC');
-
-            $query = $this->Todos->find('all')->order('scheduled_time ASC');
-            // debug($query);
-            // exit;
-        } elseif ($key && $day) {
-            $query = $this->Todos->find('all')
-                ->where(['AND' => [
-                    'scheduled_date' => $day,
-                    'OR' => [
-                        'title like' => '%' . $key . '%',
-                        'description like' => '%' . $key . '%',
-                        'status like' => '%' . $key . '%',
-                    ]
-                ]])->order('scheduled_time ASC');
+        $type = $this->request->getQuery('type');
+        $day = $this->request->getQuery('day') ? $this->request->getQuery('day') : date('Y-m-d');
+        if ($key && $day) {
+            if ($day == 'all') {
+                $query = $this->Todos->find('all')
+                    ->where([
+                        'OR' => [
+                            'title like' => '%' . $key . '%',
+                            'description like' => '%' . $key . '%',
+                            'status like' => '%' . $key . '%',
+                        ]
+                    ])->order('scheduled_time ASC');
+            } else {
+                $query = $this->Todos->find('all')
+                    ->where(['AND' => [
+                        'scheduled_date' => $day,
+                        'OR' => [
+                            'title like' => '%' . $key . '%',
+                            'description like' => '%' . $key . '%',
+                            'status like' => '%' . $key . '%',
+                        ]
+                    ]])->order('scheduled_time ASC');
+            }
         } else {
-            $query = $this->Todos->find('all')->order('scheduled_time ASC');
-        }
 
-        require_once(ROOT . DS . 'vendor' . DS . 'mpdf' . DS . 'mpdf' . DS . 'src' . DS . 'Mpdf.php');
+            if ($day == 'all') {
+                $query = $this->Todos->find('all')->order('scheduled_time ASC');
+            } else {
+                $query = $this->Todos->find('all')
+                    ->where([
+                        'scheduled_date' => $day,
+
+                    ])->order('scheduled_time ASC');
+            }
+            // $query = $this->Todos->find('all')->order('scheduled_time ASC');
+        }
 
         $mpdf = new \Mpdf\Mpdf();
         $content = 'Todos PDF Export  <br> <b>Date</b>: ' . $day . ', <b>Search Key</b>: ' . $key . '<br/>';
@@ -227,12 +237,13 @@ class TodosController extends AppController
                             ';
         foreach ($query as $todo) :
             $time = explode(',', $todo->scheduled_time);
+            $date = date_create($todo->scheduled_date . ' ' . $time[1]);
 
             $content .= '
                 <tr>
-                <td>' . h($todo->scheduled_time) . '</td>
+                <td>' . h(date_format($date, 'Y M, jS - g:ia (l)   ')) . '</td>
                 <td>' . h($todo->title) . '</td>
-                <td>' . h($todo->Description) . '</td>
+                <td>' . h($todo->description) . '</td>
                 <td>' . h($todo->status) . '</td>
             </tr>';
         endforeach;
@@ -252,5 +263,26 @@ class TodosController extends AppController
         $mpdf->debug = true; // Debug warning or errors if set true(false by default)
         $mpdf->Output($pdfName, 'I'); //output the pdf file
 
+    }
+
+    public function exportxml()
+
+    {
+        //Still building
+        $this->viewBuilder()->setLayout('exportxml');
+        $array = [
+            'Good guy' => [
+                'name' => 'Kof-ano',
+                'weapon' => 'Lightsaber'
+            ],
+            'Bad guy' => [
+                'name' => 'Akpadji',
+                'weapon' => 'Evil Eye'
+            ]
+        ];
+
+        $result = ArrayToXml::convert($array);
+
+        $this->set('xml', $result);
     }
 }
